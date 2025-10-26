@@ -51,7 +51,52 @@
                 return;
             }
 
-            // 解析 hash 中的 access_token 和 state（隐式模式返回）
+            // 读取后端配置，决定使用 implicit 还是 code
+            let mode = 'implicit';
+            try {
+                const cfg = await fetch(`${SSO_BASE}/config`, { credentials: 'include' }).then(r => r.json());
+                if (cfg && (cfg.mode === 'implicit' || cfg.mode === 'code')) {
+                    mode = cfg.mode;
+                }
+            } catch (_) { /* default implicit */ }
+
+            const params = new URLSearchParams(window.location.search);
+
+            // 授权码模式：解析 code 并置换 token
+            if (mode === 'code') {
+                const code = params.get('code');
+                const stateFromQuery = params.get('state');
+                if (code) {
+                    const storedState = sessionStorage.getItem('oauth_state');
+                    if (storedState && stateFromQuery && stateFromQuery !== storedState) {
+                        alert('state 不匹配');
+                        return;
+                    }
+                    try {
+                        const tokenResp = await fetch(`${SSO_BASE}/token`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                            body: new URLSearchParams({ grant_type: 'authorization_code', code })
+                        });
+                        if (!tokenResp.ok) throw new Error('token 交换失败');
+                        const tk = await tokenResp.json();
+                        const at = tk && tk.access_token;
+                        if (!at) throw new Error('无 access_token');
+                        sessionStorage.setItem('access_token', at);
+                        // 清理 URL 上的查询参数
+                        history.replaceState(null, '', currentNoQuery);
+                        const uiResp = await fetch(`${SSO_BASE}/userinfo`, { headers: { 'Authorization': `Bearer ${at}` } });
+                        if (!uiResp.ok) throw new Error('userinfo 请求失败');
+                        const ui = await uiResp.json();
+                        showContent(ui);
+                        return;
+                    } catch (e) {
+                        console.error(e);
+                    }
+                }
+            }
+
+            // 隐式模式：解析 hash 中的 access_token 和 state
             const hash = window.location.hash && window.location.hash.startsWith('#') ? window.location.hash.substring(1) : '';
             const hashParams = new URLSearchParams(hash);
             const accessTokenFromHash = hashParams.get('access_token');
@@ -64,9 +109,7 @@
                     return;
                 }
                 sessionStorage.setItem('access_token', accessTokenFromHash);
-                // 清理 URL 上的 fragment
                 history.replaceState(null, '', currentNoQuery);
-
                 try {
                     const uiResp = await fetch(`${SSO_BASE}/userinfo`, {
                         headers: { 'Authorization': `Bearer ${accessTokenFromHash}` }
@@ -93,7 +136,7 @@
                 } catch (e) { /* ignore */ }
             }
 
-            // 无 token，倒计时后跳转到授权页（隐式模式）
+            // 无 token，倒计时后跳转到授权页（按配置选择 response_type）
             let countdown = 5;
             const countdownElem = document.getElementById('countdown');
             countdownElem.textContent = countdown;
@@ -104,7 +147,8 @@
                     clearInterval(interval);
                     const st = genState();
                     sessionStorage.setItem('oauth_state', st);
-                    const authorizeURL = `${SSO_BASE}/authorize?response_type=token&client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(currentNoQuery)}&state=${encodeURIComponent(st)}`;
+                    const respType = mode === 'code' ? 'code' : 'token';
+                    const authorizeURL = `${SSO_BASE}/authorize?response_type=${respType}&client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(currentNoQuery)}&state=${encodeURIComponent(st)}`;
                     window.location.href = authorizeURL;
                 }
             }, 1000);

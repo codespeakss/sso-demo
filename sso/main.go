@@ -46,6 +46,11 @@ const (
 //go:embed static
 var content embed.FS
 
+func getAuthMode() string {
+	return "code"
+	// return "token"
+}
+
 func main() {
 	r := gin.Default()
 
@@ -70,6 +75,15 @@ func main() {
 
 	fsys, _ := fs.Sub(content, "static")
 	r.StaticFS("/static", http.FS(fsys))
+
+	// 简单配置查询接口，便于前端获知当前模式
+	r.GET("/config", func(c *gin.Context) {
+		mode := getAuthMode()
+		if mode == "token" {
+			mode = "implicit"
+		}
+		c.JSON(http.StatusOK, gin.H{"mode": mode})
+	})
 
 	// 登录接口
 	r.POST("/login", func(c *gin.Context) {
@@ -148,12 +162,9 @@ func main() {
 		clientID := c.Query("client_id")
 		redirectURI := c.Query("redirect_uri")
 		state := c.Query("state")
-		responseType := c.Query("response_type")
-		if responseType == "" {
-			responseType = "token" // 默认隐式模式
-		}
+		responseType := getAuthMode() // 按配置决定模式（token=隐式 或 code=授权码）
 
-		if (responseType != "token" && responseType != "code") || clientID == "" || redirectURI == "" {
+		if clientID == "" || redirectURI == "" {
 			c.String(http.StatusBadRequest, "invalid_request")
 			return
 		}
@@ -194,10 +205,7 @@ func main() {
 		clientID := c.PostForm("client_id")
 		redirectURI := c.PostForm("redirect_uri")
 		state := c.PostForm("state")
-		responseType := c.PostForm("response_type")
-		if responseType == "" {
-			responseType = "token"
-		}
+		responseType := getAuthMode()
 
 		if clientID == "" || redirectURI == "" {
 			c.String(http.StatusBadRequest, "invalid_request")
@@ -221,13 +229,11 @@ func main() {
 		sessions.RUnlock()
 
 		if responseType == "token" {
-			// 隐式模式：直接颁发 access_token
 			access := uuid.NewString()
 			accessTokens.Lock()
 			accessTokens.data[access] = username
 			accessTokens.Unlock()
 
-			// 通过 URL fragment 返回 token
 			fragment := url.Values{}
 			fragment.Set("access_token", access)
 			fragment.Set("token_type", "Bearer")
@@ -238,7 +244,6 @@ func main() {
 			return
 		}
 
-		// 兼容：授权码模式
 		code := uuid.NewString()
 		authCodes.Lock()
 		authCodes.data[code] = username
