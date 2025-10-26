@@ -2,10 +2,85 @@
 <html>
 <head>
     <title>App 首页</title>
+    <script>
+        // 获取指定 cookie 的值
+        function getCookie(name) {
+            const value = "; " + document.cookie;
+            const parts = value.split("; " + name + "=");
+            if (parts.length === 2) return parts.pop().split(";").shift();
+            return null;
+        }
+
+        // 获取 cookie 的时间戳（假设格式: "value|timestamp"）
+        function getCookieTimestamp(name) {
+            const cookieValue = getCookie(name);
+            if (!cookieValue) return null;
+            const parts = cookieValue.split('|');
+            return parts.length === 2 ? parseInt(parts[1], 10) : null;
+        }
+
+        // 获取 URL 参数
+        function getQueryParam(name) {
+            const params = new URLSearchParams(window.location.search);
+            return params.get(name);
+        }
+
+        function checkCookieAndRedirect() {
+            const cookieName = "userSession";
+            const timestamp = getCookieTimestamp(cookieName);
+            const now = Date.now();
+            const redirectURL = encodeURIComponent(window.location.href);
+
+            if (timestamp && (now - timestamp) / 1000 / 60 <= 5) {
+                // cookie 有效
+                showContent();
+                return;
+            }
+
+            // 如果 URL 上有 user 参数，显示欢迎
+            const user = getQueryParam('user');
+            if (user) {
+                showContent(user);
+                return;
+            }
+
+            // cookie 不存在或过期，倒计时 5 秒后跳转登录
+            let countdown = 5;
+            const countdownElem = document.getElementById('countdown');
+            countdownElem.textContent = countdown;
+            const interval = setInterval(() => {
+                countdown--;
+                countdownElem.textContent = countdown;
+                if (countdown <= 0) {
+                    clearInterval(interval);
+                    // 跳转到登录页，携带回调参数
+                    window.location.href = "http://sso.bewantbe.com/static/login.html?redirect=" + redirectURL;
+                }
+            }, 1000);
+
+            document.getElementById('redirectNotice').style.display = 'block';
+        }
+
+        function showContent(username = "用户") {
+            const contentDiv = document.getElementById('content');
+            contentDiv.querySelector('h1').textContent = "欢迎 " + username;
+            contentDiv.style.display = 'block';
+            document.getElementById('redirectNotice').style.display = 'none';
+        }
+
+        window.onload = checkCookieAndRedirect;
+    </script>
 </head>
 <body>
-<h1>欢迎 %s</h1>
-<p>您已经通过 SSO 登录。</p>
+    <!-- 页面内容，初始隐藏 -->
+    <div id="content" style="display:none;">
+        <h1>欢迎 %s</h1>
+        <p>您已经通过 SSO 登录。</p>
+    </div>
+
+    <!-- 跳转提示，初始隐藏 -->
+    <div id="redirectNotice" style="display:none;">
+        <p>登录信息失效，页面将在 <span id="countdown"></span> 秒后跳转...</p>
+    </div>
 </body>
 </html>
-
