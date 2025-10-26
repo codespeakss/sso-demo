@@ -44,6 +44,25 @@ var content embed.FS
 func main() {
 	r := gin.Default()
 
+	// CORS middleware for demo
+	r.Use(func(c *gin.Context) {
+		origin := c.GetHeader("Origin")
+		if origin != "" {
+			c.Header("Access-Control-Allow-Origin", origin)
+			c.Header("Vary", "Origin")
+			c.Header("Access-Control-Allow-Credentials", "true")
+			c.Header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+			c.Header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+			if c.Request.Method == http.MethodOptions {
+				c.AbortWithStatus(http.StatusNoContent)
+				return
+			}
+		}
+		c.Next()
+	})
+	// catch-all OPTIONS for preflight
+	r.OPTIONS("/*path", func(c *gin.Context) { c.Status(http.StatusNoContent) })
+
 	fsys, _ := fs.Sub(content, "static")
 	r.StaticFS("/static", http.FS(fsys))
 
