@@ -31,36 +31,62 @@
             document.cookie = `${name}=${value}; expires=${expires}; path=/`;
         }
 
-        function checkCookieAndRedirect() {
-            const cookieName = "userSession";
-            const token = getQueryParam("token"); // 从 URL 获取 token
+        // 生成随机 state（用于防 CSRF）
+        function genState(len = 16) {
+            const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+            let out = '';
+            for (let i = 0; i < len; i++) out += chars[Math.floor(Math.random() * chars.length)];
+            return out;
+        }
 
-            // 如果 URL 中带 token，则写入 cookie，并附带时间戳
-            if (token) {
-                const timestamp = Date.now();
-                const cookieValue = `${token}|${timestamp}`;
-                setCookie(cookieName, cookieValue);
-                console.log("✅ 已从 URL 设置 token 到 cookie：", cookieValue);
-                showContent();
-                return;
+        async function checkCookieAndRedirect() {
+            const SSO_BASE = "http://sso.bewantbe.com";
+            const clientId = "app01";
+            const currentNoQuery = window.location.origin + window.location.pathname;
+
+            // 解析 hash 中的 access_token 和 state（隐式模式返回）
+            const hash = window.location.hash && window.location.hash.startsWith('#') ? window.location.hash.substring(1) : '';
+            const hashParams = new URLSearchParams(hash);
+            const accessTokenFromHash = hashParams.get('access_token');
+            const stateFromHash = hashParams.get('state');
+
+            if (accessTokenFromHash) {
+                const storedState = sessionStorage.getItem('oauth_state');
+                if (storedState && stateFromHash && stateFromHash !== storedState) {
+                    alert('state 不匹配');
+                    return;
+                }
+                sessionStorage.setItem('access_token', accessTokenFromHash);
+                // 清理 URL 上的 fragment
+                history.replaceState(null, '', currentNoQuery);
+
+                try {
+                    const uiResp = await fetch(`${SSO_BASE}/userinfo`, {
+                        headers: { 'Authorization': `Bearer ${accessTokenFromHash}` }
+                    });
+                    if (!uiResp.ok) throw new Error('userinfo 请求失败');
+                    const ui = await uiResp.json();
+                    showContent(ui.username || '用户');
+                    return;
+                } catch (e) {
+                    console.error(e);
+                }
             }
 
-            // 如果 cookie 存在且未过期，显示内容
-            const timestamp = getCookieTimestamp(cookieName);
-            const now = Date.now();
-            if (timestamp && (now - timestamp) / 1000 / 60 <= 5) {
-                showContent();
-                return;
+            // 如果已有 access_token，尝试直接拿用户信息
+            const existing = sessionStorage.getItem('access_token');
+            if (existing) {
+                try {
+                    const uiResp = await fetch(`${SSO_BASE}/userinfo`, { headers: { 'Authorization': `Bearer ${existing}` } });
+                    if (uiResp.ok) {
+                        const ui = await uiResp.json();
+                        showContent(ui.username || '用户');
+                        return;
+                    }
+                } catch (e) { /* ignore */ }
             }
 
-            // 如果 URL 上有 user 参数，也直接显示
-            const user = getQueryParam('user');
-            if (user) {
-                showContent(user);
-                return;
-            }
-
-            // cookie 不存在或过期，倒计时 5 秒后跳转登录页
+            // 无 token，倒计时后跳转到授权页（隐式模式）
             let countdown = 5;
             const countdownElem = document.getElementById('countdown');
             countdownElem.textContent = countdown;
@@ -69,8 +95,10 @@
                 countdownElem.textContent = countdown;
                 if (countdown <= 0) {
                     clearInterval(interval);
-                    const redirectURL = encodeURIComponent(window.location.href);
-                    window.location.href = "http://sso.bewantbe.com/static/login.html?redirect=" + redirectURL;
+                    const st = genState();
+                    sessionStorage.setItem('oauth_state', st);
+                    const authorizeURL = `${SSO_BASE}/authorize?response_type=token&client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(currentNoQuery)}&state=${encodeURIComponent(st)}`;
+                    window.location.href = authorizeURL;
                 }
             }, 1000);
 

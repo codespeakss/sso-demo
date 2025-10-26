@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>授权确认</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script>
+    window.addEventListener('DOMContentLoaded', function() {
+      const p = new URLSearchParams(location.search);
+      document.getElementById('client_id').textContent = p.get('client_id') || '';
+      document.getElementById('username').textContent = p.get('username') || '';
+      document.querySelector('input[name="client_id"]').value = p.get('client_id') || '';
+      document.querySelector('input[name="redirect_uri"]').value = p.get('redirect_uri') || '';
+      document.querySelector('input[name="state"]').value = p.get('state') || '';
+      document.querySelector('input[name="response_type"]').value = p.get('response_type') || 'token';
+    });
+  </script>
+</head>
+<body>
+  <h1>授权请求</h1>
+  <p>应用 <strong id="client_id"></strong> 正在请求访问您的账户：<strong id="username"></strong></p>
+  <form method="post" action="/approve">
+    <input type="hidden" name="client_id" value="">
+    <input type="hidden" name="redirect_uri" value="">
+    <input type="hidden" name="state" value="">
+    <input type="hidden" name="response_type" value="">
+    <button type="submit" name="action" value="allow">同意</button>
+    <button type="submit" name="action" value="deny">拒绝</button>
+  </form>
+</body>
+</html>

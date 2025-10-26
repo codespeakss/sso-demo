@@ -6,8 +6,11 @@
     <script>
         window.addEventListener('DOMContentLoaded', function() {
             const params = new URLSearchParams(window.location.search);
-            const redirect = params.get('redirect_uri') || '';
+            const redirect = params.get('redirect') || '';
             document.querySelector('input[name="redirect"]').value = redirect;
+            const err = params.get('error') || '';
+            const el = document.getElementById('err');
+            if (el && err) { el.textContent = err; }
         });
     </script>
 </head>
@@ -21,7 +24,7 @@
     <p>
         密码: <input type="password" name="password">
     </p>
-    <p style="color:red">{{.error}}</p>
+    <p style="color:red"><span id="err"></span></p>
     <p>
         <button type="submit">登录</button>
     </p>
