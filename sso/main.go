@@ -103,6 +103,33 @@ func main() {
 		c.String(http.StatusOK, "登录成功")
 	})
 
+	// 登出接口：清除 SSO 会话并重定向
+	r.GET("/logout", func(c *gin.Context) {
+		redirect := c.Query("redirect")
+
+		ssoToken, _ := c.Cookie("sso_token")
+		if ssoToken != "" {
+			sessions.Lock()
+			delete(sessions.data, ssoToken)
+			sessions.Unlock()
+		}
+
+		// 清除 cookie（MaxAge = -1）
+		http.SetCookie(c.Writer, &http.Cookie{
+			Name:     "sso_token",
+			Value:    "",
+			Path:     "/",
+			MaxAge:   -1,
+			Secure:   false,
+			HttpOnly: true,
+		})
+
+		if redirect == "" {
+			redirect = "/static/login.html"
+		}
+		c.Redirect(http.StatusFound, redirect)
+	})
+
 	// 旧的 token 验证接口（保留兼容）
 	r.GET("/verify", func(c *gin.Context) {
 		token := c.Query("token")

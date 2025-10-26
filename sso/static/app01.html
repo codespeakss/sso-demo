@@ -140,18 +140,59 @@
             userAvatar.style.display = 'flex';
         }
 
-        window.onload = checkCookieAndRedirect;
+        window.addEventListener('load', function(){
+            const ua = document.getElementById('userAvatar');
+            const menu = document.getElementById('avatarMenu');
+            const logoutLink = document.getElementById('logoutAction');
+            if (ua && menu) {
+                ua.addEventListener('click', function(e){
+                    const isOpen = menu.style.display === 'flex' || menu.style.display === 'block';
+                    menu.style.display = isOpen ? 'none' : 'flex';
+                    e.stopPropagation();
+                });
+                document.addEventListener('click', function(){
+                    if (menu) menu.style.display = 'none';
+                });
+            }
+            if (logoutLink) {
+                logoutLink.addEventListener('click', function(e){
+                    e.preventDefault();
+                    logout();
+                });
+            }
+            checkCookieAndRedirect();
+        });
+
+        function logout() {
+            try { sessionStorage.removeItem('access_token'); } catch (e) {}
+            const SSO_BASE = document.querySelector('meta[name="sso-base"]')?.content;
+            const currentNoQuery = window.location.origin + window.location.pathname;
+            if (SSO_BASE) {
+                window.location.href = `${SSO_BASE}/logout?redirect=${encodeURIComponent(currentNoQuery)}`;
+            } else {
+                window.location.reload();
+            }
+        }
     </script>
     <style>
-        .top-right-avatar{position:fixed;top:12px;right:12px;display:none;align-items:center;gap:8px;background:rgba(255,255,255,0.9);padding:6px 8px;border-radius:9999px;border:1px solid #e5e7eb;box-shadow:0 1px 2px rgba(0,0,0,.08)}
+        .top-right-avatar{position:fixed;top:12px;right:12px;display:none;align-items:center;gap:8px;background:rgba(255,255,255,0.9);padding:6px 8px;border-radius:9999px;border:1px solid #e5e7eb;box-shadow:0 1px 2px rgba(0,0,0,.08);cursor:pointer}
         .top-right-avatar img{width:32px;height:32px;border-radius:9999px;border:1px solid #e5e7eb}
         .top-right-avatar .username{font-size:14px;color:#374151}
+        .avatar-wrapper{position:relative;display:flex;align-items:center;gap:8px}
+        .avatar-menu{position:absolute;top:44px;right:0;background:#fff;border:1px solid #e5e7eb;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.12);min-width:140px;display:none;flex-direction:column;overflow:hidden;z-index:50}
+        .avatar-menu a{padding:10px 12px;text-decoration:none;color:#111827;font-size:14px;display:block}
+        .avatar-menu a:hover{background:#f3f4f6}
     </style>
 </head>
 <body>
     <div id="userAvatar" class="top-right-avatar">
-        <span id="usernameLabel" class="username"></span>
-        <img id="avatarImg" alt="avatar" src="" />
+        <div class="avatar-wrapper">
+            <span id="usernameLabel" class="username"></span>
+            <img id="avatarImg" alt="avatar" src="" />
+            <div id="avatarMenu" class="avatar-menu">
+                <a href="javascript:void(0)" id="logoutAction">退出登录</a>
+            </div>
+        </div>
     </div>
     <!-- 页面内容，初始隐藏 -->
     <div id="content" style="display:none;">
