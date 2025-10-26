@@ -37,6 +37,12 @@ var accessTokens = struct {
 	data map[string]string // access_token -> username
 }{data: make(map[string]string)}
 
+const (
+	SSO_SESSION_MAX_AGE_SECONDS     = 3600
+	ACCESS_TOKEN_EXPIRES_IN_SECONDS = 3600
+	AUTH_CODE_EXPIRES_IN_SECONDS    = 300
+)
+
 //go:embed static
 var content embed.FS
 
@@ -87,7 +93,7 @@ func main() {
 		sessions.Lock()
 		sessions.data[ssoToken] = username
 		sessions.Unlock()
-		c.SetCookie("sso_token", ssoToken, 3600, "/", "", false, true)
+		c.SetCookie("sso_token", ssoToken, SSO_SESSION_MAX_AGE_SECONDS, "/", "", false, true)
 
 		// 成功后，如果带 redirect，就直接回跳，不再拼接 token（OAuth 流程由 /authorize 处理）
 		if redirect != "" {
@@ -259,7 +265,7 @@ func main() {
 		c.JSON(http.StatusOK, gin.H{
 			"access_token": access,
 			"token_type":   "Bearer",
-			"expires_in":   3600,
+			"expires_in":   ACCESS_TOKEN_EXPIRES_IN_SECONDS,
 		})
 	})
 
