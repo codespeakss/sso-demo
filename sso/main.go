@@ -47,13 +47,11 @@ func main() {
 			return
 		}
 
-		// 生成 session token
 		token := uuid.NewString()
 		sessions.Lock()
 		sessions.data[token] = username
 		sessions.Unlock()
 
-		// 设置 cookie
 		c.SetCookie("sso_token", token, 3600, "/", "", false, true)
 
 		if redirect != "" {
@@ -63,7 +61,6 @@ func main() {
 		}
 	})
 
-	// 验证 token
 	r.GET("/verify", func(c *gin.Context) {
 		token := c.Query("token")
 		sessions.RLock()

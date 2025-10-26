@@ -1,12 +1,20 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-CN">
 <head>
+    <meta charset="UTF-8">
     <title>SSO Login</title>
+    <script>
+        window.addEventListener('DOMContentLoaded', function() {
+            const params = new URLSearchParams(window.location.search);
+            const redirect = params.get('redirect_uri') || '';
+            document.querySelector('input[name="redirect"]').value = redirect;
+        });
+    </script>
 </head>
 <body>
 <h1>SSO 登录</h1>
 <form method="post" action="/login">
-    <input type="hidden" name="redirect" value="{{.redirect}}">
+    <input type="hidden" name="redirect" value="">
     <p>
         用户名: <input type="text" name="username">
     </p>
@@ -20,4 +28,3 @@
 </form>
 </body>
 </html>
-

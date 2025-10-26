@@ -25,26 +25,42 @@
             return params.get(name);
         }
 
+        // 设置 cookie（带过期时间，默认 30 分钟）
+        function setCookie(name, value, minutes = 30) {
+            const expires = new Date(Date.now() + minutes * 60 * 1000).toUTCString();
+            document.cookie = `${name}=${value}; expires=${expires}; path=/`;
+        }
+
         function checkCookieAndRedirect() {
             const cookieName = "userSession";
-            const timestamp = getCookieTimestamp(cookieName);
-            const now = Date.now();
-            const redirectURL = encodeURIComponent(window.location.href);
+            const token = getQueryParam("token"); // 从 URL 获取 token
 
-            if (timestamp && (now - timestamp) / 1000 / 60 <= 5) {
-                // cookie 有效
+            // 如果 URL 中带 token，则写入 cookie，并附带时间戳
+            if (token) {
+                const timestamp = Date.now();
+                const cookieValue = `${token}|${timestamp}`;
+                setCookie(cookieName, cookieValue);
+                console.log("✅ 已从 URL 设置 token 到 cookie：", cookieValue);
                 showContent();
                 return;
             }
 
-            // 如果 URL 上有 user 参数，显示欢迎
+            // 如果 cookie 存在且未过期，显示内容
+            const timestamp = getCookieTimestamp(cookieName);
+            const now = Date.now();
+            if (timestamp && (now - timestamp) / 1000 / 60 <= 5) {
+                showContent();
+                return;
+            }
+
+            // 如果 URL 上有 user 参数，也直接显示
             const user = getQueryParam('user');
             if (user) {
                 showContent(user);
                 return;
             }
 
-            // cookie 不存在或过期，倒计时 5 秒后跳转登录
+            // cookie 不存在或过期，倒计时 5 秒后跳转登录页
             let countdown = 5;
             const countdownElem = document.getElementById('countdown');
             countdownElem.textContent = countdown;
@@ -53,7 +69,7 @@
                 countdownElem.textContent = countdown;
                 if (countdown <= 0) {
                     clearInterval(interval);
-                    // 跳转到登录页，携带回调参数
+                    const redirectURL = encodeURIComponent(window.location.href);
                     window.location.href = "http://sso.bewantbe.com/static/login.html?redirect=" + redirectURL;
                 }
             }, 1000);
