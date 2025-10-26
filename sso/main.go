@@ -1,9 +1,13 @@
 package main
 
 import (
-	"github.com/gin-gonic/gin"
+	"embed"
+	"fmt"
+	"io/fs"
 	"net/http"
 	"sync"
+
+	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
 
@@ -12,27 +16,24 @@ type User struct {
 	Password string
 }
 
-// 模拟数据库
 var users = map[string]User{
-	"alice": {Username: "alice", Password: "123456"},
-	"bob":   {Username: "bob", Password: "password"},
+	"alice": {Username: "alice", Password: "pass"},
+	"bob":   {Username: "bob", Password: "pass"},
 }
 
-// Session 存储
-var sessions = struct{
+var sessions = struct {
 	sync.RWMutex
 	data map[string]string
 }{data: make(map[string]string)}
 
+//go:embed static
+var content embed.FS
+
 func main() {
 	r := gin.Default()
-	r.LoadHTMLGlob("templates/*")
 
-	// 登录页面
-	r.GET("/login", func(c *gin.Context) {
-		redirect := c.Query("redirect")
-		c.HTML(http.StatusOK, "login.html", gin.H{"redirect": redirect})
-	})
+	fsys, _ := fs.Sub(content, "static")
+	r.StaticFS("/static", http.FS(fsys))
 
 	// 登录接口
 	r.POST("/login", func(c *gin.Context) {
@@ -72,9 +73,33 @@ func main() {
 			c.JSON(http.StatusUnauthorized, gin.H{"valid": false})
 			return
 		}
+
 		c.JSON(http.StatusOK, gin.H{"valid": true, "username": username})
 	})
 
-	r.Run(":80") // 使用 80 端口
+	// ................ app01 start ................
+	r.GET("/app01", func(c *gin.Context) {
+		token, err := c.Cookie("sso_token")
+		if err != nil || token == "" {
+			c.Redirect(http.StatusFound, fmt.Sprintf("%s/login?redirect=%s", SSO_SERVER, URL_APP01))
+			return
+		}
+
+		// 验证 token
+		resp, err := http.Get(fmt.Sprintf("%s/verify?token=%s", SSO_SERVER, token))
+		if err != nil || resp.StatusCode != http.StatusOK {
+			c.String(http.StatusUnauthorized, "SSO 验证失败")
+			return
+		}
+
+		// c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(fmt.Sprintf(indexHTML, token)))
+		c.Data(http.StatusOK, "text/html; charset=utf-8", []byte("app01"))
+	})
+
+	// ................ app01 end ................
+
+	r.Run(":80")
 }
 
+const SSO_SERVER = "http://sso.bewantbe.com"
+const URL_APP01 = "http://bewantbe.com/static/app01.html"
