@@ -296,7 +296,23 @@ func main() {
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{"username": username})
+		c.JSON(http.StatusOK, gin.H{
+			"username": username,
+			"picture":  SSO_SERVER + "/avatar/" + url.PathEscape(username),
+		})
+	})
+
+	// Avatar endpoint: returns an SVG avatar for the given username
+	r.GET("/avatar/:username", func(c *gin.Context) {
+		// Load classic avatar SVG from embedded static file
+		data, err := content.ReadFile("static/avatar.svg")
+		if err != nil {
+			c.String(http.StatusInternalServerError, "avatar resource not found")
+			return
+		}
+		c.Header("Content-Type", "image/svg+xml")
+		c.Header("Cache-Control", "public, max-age=3600")
+		c.Data(http.StatusOK, "image/svg+xml", data)
 	})
 
 	// ................ app01 start ................
