@@ -2,7 +2,6 @@ package main
 
 import (
 	"embed"
-	"fmt"
 	"io/fs"
 	"net/http"
 	"net/url"
@@ -295,22 +294,6 @@ func main() {
 	})
 
 	// ................ app01 start ................
-	r.GET("/app01", func(c *gin.Context) {
-		token, err := c.Cookie("sso_token")
-		if err != nil || token == "" {
-			c.Redirect(http.StatusFound, fmt.Sprintf("%s/login?redirect=%s", SSO_SERVER, URL_APP01))
-			return
-		}
-
-		// 验证 token
-		resp, err := http.Get(fmt.Sprintf("%s/verify?token=%s", SSO_SERVER, token))
-		if err != nil || resp.StatusCode != http.StatusOK {
-			c.String(http.StatusUnauthorized, "SSO 验证失败")
-			return
-		}
-
-		c.Data(http.StatusOK, "text/html; charset=utf-8", []byte("app01"))
-	})
 	// ................ app01 end ................
 
 	r.Run(":80")

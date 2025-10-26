@@ -2,6 +2,8 @@
 <html>
 <head>
     <title>App 首页</title>
+    <meta name="sso-base" content="http://sso.bewantbe.com">
+    <meta name="client-id" content="app01">
     <script>
         // 获取指定 cookie 的值
         function getCookie(name) {
@@ -40,9 +42,14 @@
         }
 
         async function checkCookieAndRedirect() {
-            const SSO_BASE = "http://sso.bewantbe.com";
-            const clientId = "app01";
+            const SSO_BASE = document.querySelector('meta[name="sso-base"]')?.content;
+            const clientId = document.querySelector('meta[name="client-id"]')?.content;
             const currentNoQuery = window.location.origin + window.location.pathname;
+
+            if (!SSO_BASE || !clientId) {
+                console.error('缺少 <meta name="sso-base"> 或 <meta name="client-id"> 配置');
+                return;
+            }
 
             // 解析 hash 中的 access_token 和 state（隐式模式返回）
             const hash = window.location.hash && window.location.hash.startsWith('#') ? window.location.hash.substring(1) : '';
